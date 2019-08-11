@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 try:
     import script_env
 except ImportError:
@@ -13,6 +14,7 @@ import hmac
 import hashlib
 import getpass
 import uuid 
+# aiohttp requires python 3.7 and above to run.
 import aiohttp
 import random
 import json
