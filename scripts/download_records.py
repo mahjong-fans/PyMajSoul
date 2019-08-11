@@ -4,6 +4,7 @@ try:
     import script_env
 except ImportError:
     pass
+import argparse
 import asyncio
 import PyMajsoul.majsoul_pb2 as pb
 from PyMajsoul.majsoul_msjrpc import Lobby
@@ -19,15 +20,22 @@ import aiohttp
 import random
 import json
 import os
-import sys
 import base64
 
-if sys.argv[1] == "decode":
-    basedir = sys.argv[2]
-    decode_only = True
-else:
-    basedir = sys.argv[1]
-    decode_only = False
+parser = argparse.ArgumentParser(description="Download records from majsoul server.")
+parser.add_argument("--output", dest="jsondir", type=str, required=True,
+                    help="Convert the downloaded records to json format, and output to the folder, folder path is the value of this argument.")
+parser.add_argument("--output-pb", dest="pbdir", type=str,
+                    help="Simply dump the proto message as byte stream, and output to the folder, folder path is the value of this argument.")
+parser.add_argument("--memoize", dest="memoize_file", type=str,
+                    help="Indicates a file to store all downloaded files. If this argument was not given, then program will try to download all records. This is useful if want to move the downloaded files to other places.")
+parser.add_argument("--no-new-records", "-N", action="store_true",
+                    help="Decode existing records only. No new records will be downloaded.")
+
+args = parser.parse_args()
+
+print(args)
+
 
 async def manual_login(lobby):
     print("Manual Logging in")
@@ -124,7 +132,7 @@ async def main():
 
     total = len(records)
     for i, r in enumerate(records):
-        path = os.path.join(basedir, r)
+        path = os.path.join(args.jsondir, r)
         if os.path.exists(path):
             print("({}/{})Skipping existing {}".format(i + 1, total, i))
             continue
@@ -148,7 +156,7 @@ async def decode_records(records):
     async with aiohttp.ClientSession() as session:
         for i, r in enumerate(records):
             print("({}/{})Processing {}".format(i + 1, total, r))
-            path = os.path.join(basedir, r)
+            path = os.path.join(args.jsondir, r)
             with open(path) as f:
                 data = json.load(f)
             if "data" in data:
@@ -171,7 +179,7 @@ async def decode_records(records):
 
     for i, r in enumerate(records):
         print("({}/{})Processing {}".format(i + 1, total, r))
-        path = os.path.join(basedir, r)
+        path = os.path.join(args.jsondir, r)
         with open(path) as f:
             data = json.load(f)
         if "details" in data:
@@ -209,7 +217,7 @@ async def decode_records(records):
 
 
 
-if decode_only:
-    asyncio.run(decode_records(os.listdir(basedir)))
+if args.no_new_records:
+    asyncio.run(decode_records(os.listdir(args.jsondir)))
 else:
     asyncio.run(main())
