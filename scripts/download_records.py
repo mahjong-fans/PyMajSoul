@@ -132,18 +132,26 @@ async def main():
 
     total = len(records)
     for i, r in enumerate(records):
-        path = os.path.join(args.jsondir, r)
-        if os.path.exists(path):
-            print("({}/{})Skipping existing {}".format(i + 1, total, i))
+        jsonfile_path = os.path.join(args.jsondir, "{}.json".format(r))
+        if args.pbdir:
+            pbfile_path = os.path.join(args.pbdir, "{}.pb".format(r))
+
+        if should_skip(r, jsonfile_path):
+            print("({}/{})Skipping existing {}".format(i + 1, total, r))
             continue
 
         req = pb.ReqGameRecord()
         req.game_uuid = r 
         print("({}/{})Fetching {}".format(i + 1, total, r))
         res = await lobby.fetchGameRecord(req)
-        with open(path, "w") as f:
-            print("({}/{})Saving {}".format(i + 1, total, r))
+        with open(jsonfile_path, "w") as f:
+            print("({}/{})Saving {}.json".format(i + 1, total, r))
             f.write(MessageToJson(res))
+        if args.pbdir:
+            with open(pbfile_path, "wb") as f:
+                print("({}/{})Saving {}.pb".format(i + 1, total, r))
+                f.write(res.SerializeToString())
+        maybe_memoize(r)
 
     await channel.close()
     print("Connection closed")
@@ -151,13 +159,20 @@ async def main():
 
 
 async def decode_records(records):
+    global memoized
     total = len(records)
     print("Fetching details")
     async with aiohttp.ClientSession() as session:
         for i, r in enumerate(records):
             print("({}/{})Processing {}".format(i + 1, total, r))
-            path = os.path.join(args.jsondir, r)
-            with open(path) as f:
+            json_path = os.path.join(args.jsondir, "{}.json".format(r))
+
+            # Memoized but file does not exists.
+            if not os.path.exists(json_path) and memoized is not None and r in memoized:
+                print("({}/{})File {} does not exists but memoized, skip.".format(i + 1, total, r))
+                continue
+            
+            with open(json_path) as f:
                 data = json.load(f)
             if "data" in data:
                 print("({}/{})Data present in {}, skipping".format(i + 1, total, r))
@@ -169,7 +184,7 @@ async def decode_records(records):
                     details = await res.read()
                 print("({}/{})Fetched details  for {}".format(i + 1, total, r))
                 data["data"] = base64.b64encode(details).decode()
-                with open(path, "w") as f:
+                with open(json_path, "w") as f:
                     print("({}/{})Saving {}".format(i + 1, total, r))
                     json.dump(data, f, indent=2, ensure_ascii=False)
                 continue
@@ -179,8 +194,14 @@ async def decode_records(records):
 
     for i, r in enumerate(records):
         print("({}/{})Processing {}".format(i + 1, total, r))
-        path = os.path.join(args.jsondir, r)
-        with open(path) as f:
+        json_path = os.path.join(args.jsondir, "{}.json".format(r))
+
+        # Memoized but file does not exists.
+        if not os.path.exists(json_path) and memoized is not None and r in memoized:
+            print("({}/{})File {} does not exists but memoized, skip.".format(i + 1, total, r))
+            continue
+
+        with open(json_path) as f:
             data = json.load(f)
         if "details" in data:
             print("({}/{})Details present in {}, skipping".format(i + 1, total, r))
@@ -209,12 +230,37 @@ async def decode_records(records):
             results.append(result)
         data["details"] = results
 
-        with open(path, "w") as f:
+        with open(json_path, "w") as f:
             print("({}/{})Saving {}".format(i + 1, total, r))
             json.dump(data, f, indent=2, ensure_ascii=False)
 
 
+# Used to maintain the downloaded files. Only useful when --memoize is specified.
+memoized = None
 
+def should_skip(r, jsonfile_path):
+    global memoized
+    if args.memoize_file:
+        if memoized is None:
+            if os.path.exists(args.memoize_file):
+                with open(args.memoize_file, "r") as f:
+                    memoized = set(map(lambda l: l.strip(), f.readlines()))
+            else:
+                memoized = set()
+        if r in memoized:
+            return True
+
+    return os.path.exists(jsonfile_path)
+
+
+def maybe_memoize(r):
+    global memoized
+    if args.memoize_file:
+        if memoized is None:
+            memoized = set()
+        memoized.add(r)
+        with open(args.memoize_file, "a+") as f:
+            f.write(r + "\n")
 
 
 if args.no_new_records:
