@@ -21,6 +21,7 @@ import random
 import json
 import os
 import base64
+import codecs
 
 parser = argparse.ArgumentParser(description="Download records from majsoul server.")
 parser.add_argument("--output", dest="jsondir", type=str, required=True,
@@ -172,7 +173,7 @@ async def decode_records(records):
                 print("({}/{})File {} does not exists but memoized, skip.".format(i + 1, total, r))
                 continue
             
-            with open(json_path) as f:
+            with codecs.open(json_path, encoding="utf-8") as f:
                 data = json.load(f)
             if "data" in data:
                 print("({}/{})Data present in {}, skipping".format(i + 1, total, r))
@@ -184,7 +185,7 @@ async def decode_records(records):
                     details = await res.read()
                 print("({}/{})Fetched details  for {}".format(i + 1, total, r))
                 data["data"] = base64.b64encode(details).decode()
-                with open(json_path, "w") as f:
+                with codecs.open(json_path, "w", encoding="utf-8") as f:
                     print("({}/{})Saving {}".format(i + 1, total, r))
                     json.dump(data, f, indent=2, ensure_ascii=False)
                 continue
@@ -201,7 +202,7 @@ async def decode_records(records):
             print("({}/{})File {} does not exists but memoized, skip.".format(i + 1, total, r))
             continue
 
-        with open(json_path) as f:
+        with codecs.open(json_path, encoding="utf-8") as f:
             data = json.load(f)
         if "details" in data:
             print("({}/{})Details present in {}, skipping".format(i + 1, total, r))
@@ -230,7 +231,7 @@ async def decode_records(records):
             results.append(result)
         data["details"] = results
 
-        with open(json_path, "w") as f:
+        with codecs.open(json_path, "w", encoding="utf-8") as f:
             print("({}/{})Saving {}".format(i + 1, total, r))
             json.dump(data, f, indent=2, ensure_ascii=False)
 
