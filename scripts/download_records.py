@@ -167,6 +167,8 @@ async def decode_records(records):
         for i, r in enumerate(records):
             print("({}/{})Processing {}".format(i + 1, total, r))
             json_path = os.path.join(args.jsondir, "{}.json".format(r))
+            if args.pbdir:
+                pbpath = os.path.join(args.pbdir, "{}.data.pb".format(r))
 
             # Memoized but file does not exists.
             if not os.path.exists(json_path) and memoized is not None and r in memoized:
@@ -188,6 +190,10 @@ async def decode_records(records):
                 with codecs.open(json_path, "w", encoding="utf-8") as f:
                     print("({}/{})Saving {}".format(i + 1, total, r))
                     json.dump(data, f, indent=2, ensure_ascii=False)
+                if args.pbdir:
+                    with open(pbpath, "wb") as f:
+                        print("({}/{})Saving {}.data.pb".format(i + 1, total, r))
+                        f.write(details)
                 continue
             print("({}/{})Neither data or dataUrl in {}, skipping".format(i + 1, total, r))
 
